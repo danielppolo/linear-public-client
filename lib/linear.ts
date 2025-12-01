@@ -1,3 +1,5 @@
+import { ProjectConfig } from "@/lib/config"
+
 type LinearIssueState = {
   id: string
   name: string
@@ -52,8 +54,8 @@ function getPageSize(options?: { first?: number }): number {
   return options?.first ?? PAGE_SIZE
 }
 
-export function getLinearApiKey(): string | undefined {
-  const raw = process.env.LINEAR_API_KEY?.trim()
+function getLinearApiKey(config?: ProjectConfig): string | undefined {
+  const raw = config?.apiKey?.trim() ?? process.env.LINEAR_API_KEY?.trim()
   if (!raw) return undefined
   const normalized = raw.toLowerCase()
   if (normalized === "undefined" || normalized === "null") {
@@ -62,8 +64,8 @@ export function getLinearApiKey(): string | undefined {
   return raw
 }
 
-function requireLinearApiKey() {
-  const apiKey = getLinearApiKey()
+function requireLinearApiKey(config?: ProjectConfig) {
+  const apiKey = getLinearApiKey(config)
   if (!apiKey) {
     throw new Error("Missing LINEAR_API_KEY. Add it to your environment to query Linear.")
   }
@@ -76,6 +78,79 @@ const PROJECT_ISSUES_QUERY = /* GraphQL */ `
       id
       name
       url
+      issues(
+        first: $first
+        orderBy: updatedAt
+        filter: { completedAt: { null: true }, state: { name: { neq: "Canceled" } } }
+      ) {
+        nodes {
+          id
+          identifier
+          title
+          url
+          dueDate
+          priority
+          priorityLabel
+          completedAt
+          state {
+            id
+            name
+            color
+          }
+          assignee {
+            id
+            name
+          }
+          labels(first: 5) {
+            nodes {
+              id
+              name
+              color
+            }
+          }
+        }
+      }
+      completedIssues: issues(
+        first: $completedFirst
+        orderBy: updatedAt
+        filter: { completedAt: { null: false }, state: { name: { neq: "Canceled" } } }
+      ) {
+        nodes {
+          id
+          identifier
+          title
+          url
+          dueDate
+          priority
+          priorityLabel
+          completedAt
+          state {
+            id
+            name
+            color
+          }
+          assignee {
+            id
+            name
+          }
+          labels(first: 5) {
+            nodes {
+              id
+              name
+              color
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+const TEAM_ISSUES_QUERY = /* GraphQL */ `
+  query TeamIssues($teamId: String!, $first: Int = 25, $completedFirst: Int = 25) {
+    team(id: $teamId) {
+      id
+      name
       issues(
         first: $first
         orderBy: updatedAt
@@ -166,7 +241,7 @@ type LinearIssueNode = Omit<LinearIssue, "labels"> & {
   } | null
 }
 
-type ProjectIssuesResponse = {
+ type ProjectIssuesResponse = {
   data?: {
     project?: {
       id: string
@@ -192,11 +267,24 @@ type ProjectsResponse = {
   errors?: Array<{ message: string }>
 }
 
+type TeamIssuesResponse = {
+  data?: {
+    team?: {
+      id: string
+      name: string
+      issues: { nodes: LinearIssueNode[] }
+      completedIssues: { nodes: LinearIssueNode[] }
+    } | null
+  }
+  errors?: Array<{ message: string }>
+}
+
 export async function fetchLinearProjectIssues(
   projectId: string,
-  options?: { first?: number }
+  options?: { first?: number; config?: ProjectConfig }
 ): Promise<LinearProjectIssues> {
-  const apiKey = requireLinearApiKey()
+  const { config, ...rest } = options ?? {}
+  const apiKey = requireLinearApiKey(config)
 
   const response = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
     method: "POST",
@@ -208,11 +296,10 @@ export async function fetchLinearProjectIssues(
       query: PROJECT_ISSUES_QUERY,
       variables: {
         projectId,
-        first: getPageSize(options),
-        completedFirst: getPageSize(options),
+        first: getPageSize(rest),
+        completedFirst: getPageSize(rest),
       },
     }),
-    // Never cache project data; reflect latest task state
     cache: "no-store",
     next: { revalidate: 0 },
   })
@@ -252,10 +339,67 @@ export async function fetchLinearProjectIssues(
   }
 }
 
+export async function fetchLinearTeamIssues(
+  teamId: string,
+  options?: { first?: number; config?: ProjectConfig }
+): Promise<LinearProjectIssues> {
+  const { config, ...rest } = options ?? {}
+  const apiKey = requireLinearApiKey(config)
+
+  const response = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: apiKey,
+    },
+    body: JSON.stringify({
+      query: TEAM_ISSUES_QUERY,
+      variables: {
+        teamId,
+        first: getPageSize(rest),
+        completedFirst: getPageSize(rest),
+      },
+    }),
+    cache: "no-store",
+    next: { revalidate: 0 },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Linear request failed with status ${response.status}`)
+  }
+
+  const payload = (await response.json()) as TeamIssuesResponse
+
+  if (payload.errors?.length) {
+    throw new Error(payload.errors.map((error) => error.message).join(", "))
+  }
+
+  const team = payload.data?.team
+
+  if (!team) {
+    throw new Error(`Linear team ${teamId} not found`)
+  }
+
+  const mapIssueNodes = (nodes?: LinearIssueNode[]): LinearIssue[] =>
+    nodes?.map(({ labels, ...issue }) => ({
+      ...issue,
+      labels:
+        labels?.nodes?.filter((label): label is LinearIssueLabel => Boolean(label)) ?? [],
+    })) ?? []
+
+  return {
+    projectId: team.id,
+    projectName: team.name,
+    issues: mapIssueNodes(team.issues.nodes),
+    completedIssues: mapIssueNodes(team.completedIssues?.nodes),
+  }
+}
+
 export async function fetchLinearProjects(options?: {
   first?: number
+  config?: ProjectConfig
 }): Promise<LinearProjectSummary[]> {
-  const apiKey = requireLinearApiKey()
+  const apiKey = requireLinearApiKey(options?.config)
 
   const response = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
     method: "POST",
@@ -271,14 +415,11 @@ export async function fetchLinearProjects(options?: {
     next: { revalidate: 0 },
   })
 
-  console.log(response)
   if (!response.ok) {
     throw new Error(`Linear request failed with status ${response.status}`)
   }
 
   const payload = (await response.json()) as ProjectsResponse
-
-  console.log(payload)
 
   if (payload.errors?.length) {
     throw new Error(payload.errors.map((error) => error.message).join(", "))

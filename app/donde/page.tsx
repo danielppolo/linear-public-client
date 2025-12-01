@@ -4,13 +4,13 @@ import { fetchLinearProjectIssues } from "@/lib/linear"
 
 export const revalidate = 0
 
-async function loadProject(envPrefix?: string) {
-  const config = resolveProjectConfig(envPrefix ?? "LINEAR")
+async function loadProject() {
+  const config = resolveProjectConfig("DONDE")
   let stateMessage = ""
   let projectData = null
 
   if (!config.projectId) {
-    stateMessage = "Set the project ID in your environment to load project issues."
+    stateMessage = "Set DONDE_PROJECT_ID in your environment to load project issues."
     return { projectData, stateMessage }
   }
 
@@ -23,7 +23,7 @@ async function loadProject(envPrefix?: string) {
   return { projectData, stateMessage }
 }
 
-export default async function Home() {
+export default async function DondePage() {
   const { projectData, stateMessage } = await loadProject()
   return <ProjectDashboard projectData={projectData} stateMessage={stateMessage} />
 }

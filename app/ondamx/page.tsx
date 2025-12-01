@@ -1,21 +1,21 @@
 import { ProjectDashboard } from "@/components/project-dashboard"
 import { resolveProjectConfig } from "@/lib/config"
-import { fetchLinearProjectIssues } from "@/lib/linear"
+import { fetchLinearTeamIssues } from "@/lib/linear"
 
 export const revalidate = 0
 
-async function loadProject(envPrefix?: string) {
-  const config = resolveProjectConfig(envPrefix ?? "LINEAR")
+async function loadProject() {
+  const config = resolveProjectConfig("ONDAMX")
   let stateMessage = ""
   let projectData = null
 
-  if (!config.projectId) {
-    stateMessage = "Set the project ID in your environment to load project issues."
+  if (!config.teamId) {
+    stateMessage = "Set ONDAMX_TEAM_ID in your environment to load team issues."
     return { projectData, stateMessage }
   }
 
   try {
-    projectData = await fetchLinearProjectIssues(config.projectId, { config })
+    projectData = await fetchLinearTeamIssues(config.teamId, { config })
   } catch (error) {
     stateMessage = error instanceof Error ? error.message : "Unable to load Linear issues."
   }
@@ -23,7 +23,7 @@ async function loadProject(envPrefix?: string) {
   return { projectData, stateMessage }
 }
 
-export default async function Home() {
+export default async function OndamxPage() {
   const { projectData, stateMessage } = await loadProject()
   return <ProjectDashboard projectData={projectData} stateMessage={stateMessage} />
 }

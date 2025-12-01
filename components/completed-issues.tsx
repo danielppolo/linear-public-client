@@ -48,14 +48,6 @@ export function CompletedIssues({ issues }: { issues: LinearIssue[] }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm uppercase tracking-wide text-muted-foreground">
-            Completed issues
-          </p>
-          <p className="text-base text-muted-foreground">
-            Showing {filteredIssues.length} of {issues.length} completed tasks
-          </p>
-        </div>
         <div className="space-y-2">
           <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Completed within
@@ -108,7 +100,7 @@ export function CompletedIssues({ issues }: { issues: LinearIssue[] }) {
                             <Badge
                               key={label.id}
                               variant="outline"
-                              className="rounded-full border-dashed px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide"
+                              className="rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide"
                               style={
                                 label.color
                                   ? {

@@ -223,7 +223,7 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
                           <Badge
                             key={label.id}
                             variant="outline"
-                            className="rounded-full border-dashed px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide"
+                            className="rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide"
                             style={
                               label.color
                                 ? {
