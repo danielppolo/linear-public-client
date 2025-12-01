@@ -18,6 +18,7 @@ export type LinearIssue = {
   dueDate?: string | null
   priority?: number | null
   priorityLabel?: string | null
+  completedAt?: string | null
   assignee?: {
     id: string
     name: string
@@ -31,6 +32,7 @@ export type LinearProjectIssues = {
   projectName: string
   projectUrl?: string | null
   issues: LinearIssue[]
+  completedIssues: LinearIssue[]
 }
 
 export type LinearProjectSummary = {
@@ -69,12 +71,16 @@ function requireLinearApiKey() {
 }
 
 const PROJECT_ISSUES_QUERY = /* GraphQL */ `
-  query ProjectIssues($projectId: String!, $first: Int = 25) {
+  query ProjectIssues($projectId: String!, $first: Int = 25, $completedFirst: Int = 25) {
     project(id: $projectId) {
       id
       name
       url
-      issues(first: $first, orderBy: updatedAt, filter: { completedAt: { null: true } }) {
+      issues(
+        first: $first
+        orderBy: updatedAt
+        filter: { completedAt: { null: true }, state: { name: { neq: "Canceled" } } }
+      ) {
         nodes {
           id
           identifier
@@ -83,6 +89,39 @@ const PROJECT_ISSUES_QUERY = /* GraphQL */ `
           dueDate
           priority
           priorityLabel
+          completedAt
+          state {
+            id
+            name
+            color
+          }
+          assignee {
+            id
+            name
+          }
+          labels(first: 5) {
+            nodes {
+              id
+              name
+              color
+            }
+          }
+        }
+      }
+      completedIssues: issues(
+        first: $completedFirst
+        orderBy: updatedAt
+        filter: { completedAt: { null: false }, state: { name: { neq: "Canceled" } } }
+      ) {
+        nodes {
+          id
+          identifier
+          title
+          url
+          dueDate
+          priority
+          priorityLabel
+          completedAt
           state {
             id
             name
@@ -136,6 +175,9 @@ type ProjectIssuesResponse = {
       issues: {
         nodes: LinearIssueNode[]
       }
+      completedIssues: {
+        nodes: LinearIssueNode[]
+      }
     } | null
   }
   errors?: Array<{ message: string }>
@@ -164,7 +206,11 @@ export async function fetchLinearProjectIssues(
     },
     body: JSON.stringify({
       query: PROJECT_ISSUES_QUERY,
-      variables: { projectId, first: getPageSize(options) },
+      variables: {
+        projectId,
+        first: getPageSize(options),
+        completedFirst: getPageSize(options),
+      },
     }),
     // Never cache project data; reflect latest task state
     cache: "no-store",
@@ -187,18 +233,22 @@ export async function fetchLinearProjectIssues(
     throw new Error(`Linear project ${projectId} not found`)
   }
 
-  const issues: LinearIssue[] =
-    project.issues.nodes?.map(({ labels, ...issue }) => ({
+  const mapIssueNodes = (nodes?: LinearIssueNode[]): LinearIssue[] =>
+    nodes?.map(({ labels, ...issue }) => ({
       ...issue,
       labels:
         labels?.nodes?.filter((label): label is LinearIssueLabel => Boolean(label)) ?? [],
     })) ?? []
 
+  const activeIssues = mapIssueNodes(project.issues.nodes)
+  const completedIssues = mapIssueNodes(project.completedIssues?.nodes)
+
   return {
     projectId: project.id,
     projectName: project.name,
     projectUrl: project.url,
-    issues,
+    issues: activeIssues,
+    completedIssues,
   }
 }
 

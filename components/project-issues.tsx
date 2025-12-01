@@ -360,3 +360,5 @@ function StatusBadge({ name, color }: { name?: string | null; color?: string | n
     </Badge>
   )
 }
+
+export { StatusBadge }
