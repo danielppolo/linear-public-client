@@ -23,25 +23,26 @@ export function ProjectDashboard({
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="sticky inset-x-0 top-0 z-10 border-b border-border/60 bg-background/70 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
-          <div className="flex flex-col">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">Project</span>
-            <strong className="text-lg font-semibold">
-              {projectData?.projectName ?? "Linear project"}
-            </strong>
-          </div>
-          <ThemeToggle />
-        </div>
-      </div>
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 p-6">
-        {projectData ? (
-          <section className="space-y-6">
-            <Tabs defaultValue="active" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-2">
+      <Tabs defaultValue="active" className="w-full">
+        <div className="sticky inset-x-0 top-0 z-10 border-b border-border/60 bg-background/70 backdrop-blur">
+          <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
+            <div className="flex flex-col">
+              <strong className="text-lg font-semibold">
+                {projectData?.projectName ?? "Linear project"}
+              </strong>
+            </div>
+            <div className="flex items-center gap-3">
+              <TabsList>
                 <TabsTrigger value="active">Active</TabsTrigger>
                 <TabsTrigger value="inactive">Completed</TabsTrigger>
               </TabsList>
+              <ThemeToggle />
+            </div>
+          </div>
+        </div>
+        <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pb-10 pt-6">
+          {projectData ? (
+            <section className="space-y-6">
               <TabsContent value="active">
                 {activeIssues.length ? (
                   <ProjectIssues issues={activeIssues} />
@@ -50,7 +51,7 @@ export function ProjectDashboard({
                     <EmptyHeader>
                       <EmptyTitle>No active tasks</EmptyTitle>
                       <EmptyDescription>
-                        This project does not have any open issues right now. Try updating the filters in Linear.
+                        This project does not have any open issues right now.
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
@@ -70,20 +71,20 @@ export function ProjectDashboard({
                   </Empty>
                 )}
               </TabsContent>
-            </Tabs>
-          </section>
-        ) : (
-          <Empty className="border border-dashed border-muted-foreground/40 bg-muted/30">
-            <EmptyHeader>
-              <SmileIcon className="mb-2 size-10 text-muted-foreground" aria-hidden="true" />
-              <EmptyTitle>Nothing to show yet</EmptyTitle>
-              <EmptyDescription>
-                {stateMessage || "We’ll share updates here as soon as there’s something new."}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
-      </main>
+            </section>
+          ) : (
+            <Empty className="border border-dashed border-muted-foreground/40 bg-muted/30">
+              <EmptyHeader>
+                <SmileIcon className="mb-2 size-10 text-muted-foreground" aria-hidden="true" />
+                <EmptyTitle>Nothing to show yet</EmptyTitle>
+                <EmptyDescription>
+                  {stateMessage || "We’ll share updates here as soon as there’s something new."}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+        </main>
+      </Tabs>
     </div>
   )
 }

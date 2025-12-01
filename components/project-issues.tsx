@@ -119,7 +119,7 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-4 rounded-lg border bg-card/40 p-4">
+      <div className="flex flex-wrap gap-4">
         <div className="space-y-2">
           <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Priority sort
