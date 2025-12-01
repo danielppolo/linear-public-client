@@ -35,39 +35,28 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-16">
-        <div className="flex justify-end">
+      <div className="sticky inset-x-0 top-0 z-10 border-b border-border/60 bg-background/70 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
+          <div className="flex flex-col">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">Project</span>
+            <strong className="text-lg font-semibold">
+              {projectData?.projectName ?? "Linear project"}
+            </strong>
+          </div>
           <ThemeToggle />
         </div>
-
+      </div>
+      <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 p-6">
         {projectData ? (
           <section className="space-y-6">
-            <div className="space-y-2">
-              <p className="text-sm uppercase tracking-wide text-muted-foreground">Project issues</p>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-2xl font-semibold">{projectData.projectName}</h1>
-                  {projectData.projectUrl ? (
-                    <a
-                      href={projectData.projectUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm text-primary underline-offset-4 hover:underline"
-                    >
-                      View in Linear
-                    </a>
-                  ) : null}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Active: {activeIssues.length} · Completed: {completedIssues.length}
-                </p>
-              </div>
-            </div>
-
             <Tabs defaultValue="active" className="space-y-6">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="active">Development</TabsTrigger>
-                <TabsTrigger value="inactive">Completed</TabsTrigger>
+                <TabsTrigger value="active">
+                  Active 
+                </TabsTrigger>
+                <TabsTrigger value="inactive">
+                  Completed
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="active">
                 {activeIssues.length ? (
