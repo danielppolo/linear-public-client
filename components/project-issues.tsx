@@ -21,8 +21,26 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { LinearIssue } from "@/lib/linear"
-import { ArrowDownIcon, ArrowUpIcon, CircleIcon, FlameIcon, MinusIcon } from "lucide-react"
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CircleDashedIcon,
+  CircleDotDashedIcon,
+  CircleDotIcon,
+  CircleIcon,
+  CircleMinusIcon,
+  CircleOffIcon,
+  CircleSlashIcon,
+  FlameIcon,
+  MinusIcon,
+} from "lucide-react"
 import type { LucideIcon } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 function formatPriority(priorityLabel?: string | null, priority?: number | null) {
   if (priorityLabel) return priorityLabel
@@ -174,15 +192,18 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-16 text-center">Status</TableHead>
               <TableHead>Issue</TableHead>
-              <TableHead>Assignee</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="w-24 text-center">Priority</TableHead>
+              <TableHead className="w-28 text-center">Assignee</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedIssues.map((issue) => (
               <TableRow key={issue.id}>
+                <TableCell className="text-center">
+                  <StatusBadge name={issue.state.name} color={issue.state.color} />
+                </TableCell>
                 <TableCell className="max-w-[280px] whitespace-normal break-words">
                   <div className="flex flex-col gap-1">
                     <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -219,15 +240,14 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
                     ) : null}
                   </div>
                 </TableCell>
-                <TableCell>{issue.assignee?.name ?? "Unassigned"}</TableCell>
-                <TableCell>
+                <TableCell className="text-center">
                   <PriorityBadge
                     label={formatPriority(issue.priorityLabel, issue.priority)}
                     priorityValue={issue.priority}
                   />
                 </TableCell>
-                <TableCell>
-                  <StatusBadge name={issue.state.name} color={issue.state.color} />
+                <TableCell className="text-center">
+                  {issue.assignee?.name ?? "Unassigned"}
                 </TableCell>
               </TableRow>
             ))}
@@ -313,10 +333,16 @@ function PriorityBadge({
   const Icon = visual.Icon
 
   return (
-    <div className="flex items-center gap-2">
-      <Icon className={`size-4 ${visual.className}`} aria-hidden="true" />
-      <span>{label}</span>
-    </div>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center justify-center">
+            <Icon className={`size-4 ${visual.className}`} aria-hidden="true" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -338,26 +364,46 @@ function getPriorityTier(label: string, priorityValue?: number | null): Priority
   return "none"
 }
 
+const STATUS_ICONS: Record<string, LucideIcon> = {
+  Backlog: CircleDashedIcon,
+  Todo: CircleDotDashedIcon,
+  "In Progress": CircleDotIcon,
+  "In Review": CircleSlashIcon,
+  Done: CircleIcon,
+  Cancelled: CircleMinusIcon,
+}
+
 function StatusBadge({ name, color }: { name?: string | null; color?: string | null }) {
   if (!name) {
-    return <Badge className="uppercase tracking-wide">Unknown</Badge>
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <CircleOffIcon className="size-4 text-muted-foreground" />
+          </TooltipTrigger>
+          <TooltipContent>Unknown</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
   }
 
+  const Icon = STATUS_ICONS[name] ?? CircleIcon
+
   return (
-    <Badge
-      className="uppercase tracking-wide"
-      style={
-        color
-          ? {
-              backgroundColor: color,
-              borderColor: color,
-              color: "#0a0a0a",
-            }
-          : undefined
-      }
-    >
-      {name}
-    </Badge>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center justify-center">
+            <Icon
+              className="size-4"
+              aria-hidden="true"
+              style={color ? { color } : undefined}
+            />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{name}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
