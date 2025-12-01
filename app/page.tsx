@@ -1,21 +1,12 @@
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { ProjectIssues } from "@/components/project-issues"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { Separator } from "@/components/ui/separator"
 import { fetchLinearProjectIssues } from "@/lib/linear"
 
 export const revalidate = 0
@@ -39,6 +30,7 @@ export default async function Home() {
   }
 
   const issues = projectData?.issues ?? []
+  console.log(issues)
 
   return (
     <div className="min-h-screen bg-background text-foreground">

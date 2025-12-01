@@ -88,6 +88,11 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
         if (result !== 0) return result
       }
 
+      if (statusSort === "default") {
+        const result = compareStatusByDefaultOrder(a, b)
+        if (result !== 0) return result
+      }
+
       return a.identifier.localeCompare(b.identifier)
     }
 
@@ -288,6 +293,25 @@ const PRIORITY_VISUALS: Record<PriorityTier, { Icon: LucideIcon; className: stri
   medium: { Icon: MinusIcon, className: "text-yellow-500" },
   low: { Icon: ArrowDownIcon, className: "text-muted-foreground" },
   none: { Icon: CircleIcon, className: "text-muted-foreground" },
+}
+
+const STATUS_ORDER = [
+  "In Review",
+  "In Progress",
+  "Todo",
+  "Backlog",
+  "Done",
+  "Cancelled",
+]
+
+function compareStatusByDefaultOrder(a: LinearIssue, b: LinearIssue) {
+  const rank = (state?: string | null) => {
+    if (!state) return STATUS_ORDER.length
+    const index = STATUS_ORDER.indexOf(state)
+    return index === -1 ? STATUS_ORDER.length : index
+  }
+
+  return rank(a.state?.name) - rank(b.state?.name)
 }
 
 function PriorityBadge({
