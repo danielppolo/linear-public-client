@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Table,
@@ -316,9 +317,7 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
                 </TableCell>
                 <TableCell className="max-w-[280px] whitespace-normal break-words">
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-medium text-primary">
-                      {issue.title}
-                    </span>
+                    <IssueTitle title={issue.title} description={issue.description} />
                     {issue.labels.length ? (
                       <div className="flex flex-wrap gap-1">
                         {issue.labels.map((label) => {
@@ -581,4 +580,27 @@ function StatusBadge({
   )
 }
 
-export { StatusBadge }
+function IssueTitle({ title, description }: { title: string; description?: string | null }) {
+  const trimmedDescription = description?.trim()
+
+  if (!trimmedDescription) {
+    return <span className="text-sm font-medium text-primary">{title}</span>
+  }
+
+  return (
+    <Collapsible className="space-y-1">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-semibold text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-primary/5">
+        <span className="flex-1">{title}</span>
+        <ChevronDownIcon
+          className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 data-[state=open]:rotate-180"
+          aria-hidden="true"
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-sm text-muted-foreground whitespace-pre-line">
+        {trimmedDescription}
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+export { StatusBadge, IssueTitle }

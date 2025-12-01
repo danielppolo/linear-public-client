@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 
+import { IssueTitle } from "@/components/project-issues"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -71,9 +72,7 @@ export function CompletedIssues({ issues }: { issues: LinearIssue[] }) {
                 <TableRow key={issue.id}>
                   <TableCell className="max-w-[280px] whitespace-normal break-words">
                     <div className="flex flex-col gap-1">
-                      <span className="text-sm font-medium text-primary">
-                        {issue.title}
-                      </span>
+                      <IssueTitle title={issue.title} description={issue.description} />
                       {issue.labels.length ? (
                         <div className="flex flex-wrap gap-1">
                           {issue.labels.map((label) => (

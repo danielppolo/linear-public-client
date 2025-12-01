@@ -17,6 +17,7 @@ export type LinearIssue = {
   identifier: string
   title: string
   url: string
+  description?: string | null
   dueDate?: string | null
   priority?: number | null
   priorityLabel?: string | null
@@ -87,6 +88,7 @@ const PROJECT_ISSUES_QUERY = /* GraphQL */ `
           id
           identifier
           title
+          description
           url
           dueDate
           priority
@@ -119,6 +121,7 @@ const PROJECT_ISSUES_QUERY = /* GraphQL */ `
           id
           identifier
           title
+          description
           url
           dueDate
           priority
@@ -160,6 +163,7 @@ const TEAM_ISSUES_QUERY = /* GraphQL */ `
           id
           identifier
           title
+          description
           url
           dueDate
           priority
@@ -192,6 +196,7 @@ const TEAM_ISSUES_QUERY = /* GraphQL */ `
           id
           identifier
           title
+          description
           url
           dueDate
           priority
