@@ -86,31 +86,29 @@ export function CompletedIssues({ issues }: { issues: LinearIssue[] }) {
                       <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                         {issue.identifier}
                       </span>
-                      <a
-                        href={issue.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm font-medium text-primary hover:underline"
-                      >
+                      <span className="text-sm font-medium text-primary">
                         {issue.title}
-                      </a>
+                      </span>
                       {issue.labels.length ? (
                         <div className="flex flex-wrap gap-1">
                           {issue.labels.map((label) => (
                             <Badge
                               key={label.id}
                               variant="outline"
-                              className="rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide"
-                              style={
-                                label.color
-                                  ? {
-                                      borderColor: label.color,
-                                      color: label.color,
-                                    }
-                                  : undefined
-                              }
+                              className="rounded-full px-2 py-0.5 text-[11px] font-medium tracking-wide"
                             >
-                              {label.name}
+                              {label.color ? (
+                                <>
+                                  <span
+                                    aria-hidden="true"
+                                    className="h-[6px] w-[6px] rounded-full"
+                                    style={{ backgroundColor: label.color }}
+                                  />
+                                  <span>{label.name}</span>
+                                </>
+                              ) : (
+                                label.name
+                              )}
                             </Badge>
                           ))}
                         </div>

@@ -57,6 +57,7 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
   const [prioritySort, setPrioritySort] = useState<PrioritySort>("default")
   const [statusSort, setStatusSort] = useState<StatusSort>("default")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [priorityFilter, setPriorityFilter] = useState<string>("all")
   const [tagFilter, setTagFilter] = useState<string>("all")
 
   const statusOptions = useMemo(() => {
@@ -81,15 +82,26 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
     return Array.from(tags).sort((a, b) => a.localeCompare(b))
   }, [issues])
 
+  const priorityOptions = useMemo(() => {
+    const options = new Set<string>()
+    issues.forEach((issue) => {
+      options.add(formatPriority(issue.priorityLabel, issue.priority))
+    })
+    return Array.from(options).sort((a, b) => a.localeCompare(b))
+  }, [issues])
+
   const filteredIssues = useMemo(() => {
-    if (statusFilter === "all" && tagFilter === "all") return issues
+    if (statusFilter === "all" && tagFilter === "all" && priorityFilter === "all") return issues
     return issues.filter((issue) => {
       const matchesStatus = statusFilter === "all" || issue.state?.name === statusFilter
       const matchesTag =
         tagFilter === "all" || issue.labels.some((label) => label.name === tagFilter)
-      return matchesStatus && matchesTag
+      const matchesPriority =
+        priorityFilter === "all" ||
+        formatPriority(issue.priorityLabel, issue.priority) === priorityFilter
+      return matchesStatus && matchesTag && matchesPriority
     })
-  }, [issues, statusFilter, tagFilter])
+  }, [issues, statusFilter, tagFilter, priorityFilter])
 
   const sortedIssues = useMemo(() => {
     const comparator = (a: LinearIssue, b: LinearIssue) => {
@@ -186,6 +198,24 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Priority filter
+          </Label>
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="min-w-[180px]">
+              <SelectValue placeholder="All priorities" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All priorities</SelectItem>
+              {priorityOptions.map((priority) => (
+                <SelectItem key={priority} value={priority}>
+                  {priority}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <ScrollArea className="rounded-xl border">
@@ -202,38 +232,40 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
             {sortedIssues.map((issue) => (
               <TableRow key={issue.id}>
                 <TableCell className="text-center">
-                  <StatusBadge name={issue.state.name} color={issue.state.color} />
+                  <StatusBadge
+                    name={issue.state.name}
+                    color={issue.state.color}
+                    onSelectStatus={(status) => setStatusFilter(status)}
+                  />
                 </TableCell>
                 <TableCell className="max-w-[280px] whitespace-normal break-words">
                   <div className="flex flex-col gap-1">
                     <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                       {issue.identifier}
                     </span>
-                    <a
-                      href={issue.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
+                    <span className="text-sm font-medium text-primary">
                       {issue.title}
-                    </a>
+                    </span>
                     {issue.labels.length ? (
                       <div className="flex flex-wrap gap-1">
                         {issue.labels.map((label) => (
                           <Badge
                             key={label.id}
                             variant="outline"
-                            className="rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide"
-                            style={
-                              label.color
-                                ? {
-                                    borderColor: label.color,
-                                    color: label.color,
-                                  }
-                                : undefined
-                            }
+                            className="rounded-full border px-2 py-0.5 text-[11px] font-medium tracking-wide"
                           >
-                            {label.name}
+                            {label.color ? (
+                              <>
+                                <span
+                                  aria-hidden="true"
+                                  className="h-[6px] w-[6px] rounded-full"
+                                  style={{ backgroundColor: label.color }}
+                                />
+                                <span>{label.name}</span>
+                              </>
+                            ) : (
+                              label.name
+                            )}
                           </Badge>
                         ))}
                       </div>
@@ -244,6 +276,7 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
                   <PriorityBadge
                     label={formatPriority(issue.priorityLabel, issue.priority)}
                     priorityValue={issue.priority}
+                    onSelectPriority={(priority) => setPriorityFilter(priority)}
                   />
                 </TableCell>
                 <TableCell className="text-center">
@@ -324,21 +357,44 @@ function compareStatusByDefaultOrder(a: LinearIssue, b: LinearIssue) {
 function PriorityBadge({
   label,
   priorityValue,
+  onSelectPriority,
 }: {
   label: string
   priorityValue?: number | null
+  onSelectPriority?: (priority: string) => void
 }) {
   const tier = getPriorityTier(label, priorityValue)
   const visual = PRIORITY_VISUALS[tier]
   const Icon = visual.Icon
 
+  const handleSelect = () => {
+    if (!onSelectPriority) return
+    onSelectPriority(label)
+  }
+
+  const baseTriggerClass = "inline-flex items-center justify-center"
+  const interactiveClass =
+    "cursor-pointer rounded-full border-0 bg-transparent p-0 text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  const triggerClass = onSelectPriority ? `${baseTriggerClass} ${interactiveClass}` : baseTriggerClass
+
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="inline-flex items-center justify-center">
-            <Icon className={`size-4 ${visual.className}`} aria-hidden="true" />
-          </span>
+          {onSelectPriority ? (
+            <button
+              type="button"
+              onClick={handleSelect}
+              className={triggerClass}
+              aria-label={`Filter by ${label}`}
+            >
+              <Icon className={`size-4 ${visual.className}`} aria-hidden="true" />
+            </button>
+          ) : (
+            <span className={triggerClass}>
+              <Icon className={`size-4 ${visual.className}`} aria-hidden="true" />
+            </span>
+          )}
         </TooltipTrigger>
         <TooltipContent>{label}</TooltipContent>
       </Tooltip>
@@ -373,7 +429,15 @@ const STATUS_ICONS: Record<string, LucideIcon> = {
   Cancelled: CircleMinusIcon,
 }
 
-function StatusBadge({ name, color }: { name?: string | null; color?: string | null }) {
+function StatusBadge({
+  name,
+  color,
+  onSelectStatus,
+}: {
+  name?: string | null
+  color?: string | null
+  onSelectStatus?: (status: string) => void
+}) {
   if (!name) {
     return (
       <TooltipProvider>
@@ -389,17 +453,42 @@ function StatusBadge({ name, color }: { name?: string | null; color?: string | n
 
   const Icon = STATUS_ICONS[name] ?? CircleIcon
 
+  const handleSelect = () => {
+    if (!name || !onSelectStatus) return
+    onSelectStatus(name)
+  }
+
+  const baseTriggerClass = "inline-flex items-center justify-center"
+  const interactiveClass =
+    "cursor-pointer rounded-full border-0 bg-transparent p-0 text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  const triggerClass = onSelectStatus ? `${baseTriggerClass} ${interactiveClass}` : baseTriggerClass
+
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="inline-flex items-center justify-center">
-            <Icon
-              className="size-4"
-              aria-hidden="true"
-              style={color ? { color } : undefined}
-            />
-          </span>
+          {onSelectStatus ? (
+            <button
+              type="button"
+              onClick={handleSelect}
+              className={triggerClass}
+              aria-label={`Filter by ${name}`}
+            >
+              <Icon
+                className="size-4"
+                aria-hidden="true"
+                style={color ? { color } : undefined}
+              />
+            </button>
+          ) : (
+            <span className={triggerClass}>
+              <Icon
+                className="size-4"
+                aria-hidden="true"
+                style={color ? { color } : undefined}
+              />
+            </span>
+          )}
         </TooltipTrigger>
         <TooltipContent>{name}</TooltipContent>
       </Tooltip>
