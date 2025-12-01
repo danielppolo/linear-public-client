@@ -1,8 +1,13 @@
 import { ProjectDashboard } from "@/components/project-dashboard"
 import { resolveProjectConfig } from "@/lib/config"
 import { fetchLinearProjectIssues } from "@/lib/linear"
+import type { Metadata } from "next"
 
 export const revalidate = 0
+
+export const metadata: Metadata = {
+  title: "Home",
+}
 
 async function loadProject(envPrefix?: string) {
   const config = resolveProjectConfig(envPrefix ?? "LINEAR")

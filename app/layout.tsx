@@ -14,7 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Linear public client",
+  title: {
+    default: "Projects",
+    template: "Projects | %s",
+  },
   description: "Track Linear project issues with live data, filters, and shadcn UI components.",
 };
 
