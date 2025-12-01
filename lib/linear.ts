@@ -54,7 +54,7 @@ function getPageSize(options?: { first?: number }): number {
   return options?.first ?? PAGE_SIZE
 }
 
-function getLinearApiKey(config?: ProjectConfig): string | undefined {
+export function getLinearApiKey(config?: ProjectConfig): string | undefined {
   const raw = config?.apiKey?.trim() ?? process.env.LINEAR_API_KEY?.trim()
   if (!raw) return undefined
   const normalized = raw.toLowerCase()
