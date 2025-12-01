@@ -3,15 +3,8 @@
 import { useMemo, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -31,8 +24,11 @@ import {
   CircleMinusIcon,
   CircleOffIcon,
   CircleSlashIcon,
+  FilterIcon,
   FlameIcon,
   MinusIcon,
+  SlidersHorizontalIcon,
+  ChevronDownIcon,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import {
@@ -41,6 +37,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { cn } from "@/lib/utils"
 
 function formatPriority(priorityLabel?: string | null, priority?: number | null) {
   if (priorityLabel) return priorityLabel
@@ -129,93 +139,159 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
     return [...filteredIssues].sort(comparator)
   }, [filteredIssues, prioritySort, statusSort])
 
+  const isPrioritySortActive = prioritySort !== "default"
+  const isStatusSortActive = statusSort !== "default"
+  const isStatusFilterActive = statusFilter !== "all"
+  const isTagFilterActive = tagFilter !== "all"
+  const isPriorityFilterActive = priorityFilter !== "all"
+
+  const isAnySortActive = isPrioritySortActive || isStatusSortActive
+  const isAnyFilterActive =
+    isStatusFilterActive || isTagFilterActive || isPriorityFilterActive
+
+  const triggerButtonClass = (isActive: boolean) =>
+    cn(
+      "min-w-[220px] justify-between",
+      isActive ? "border-primary bg-primary/5 text-primary shadow-sm" : null
+    )
+
+  const resetSorts = () => {
+    setPrioritySort("default")
+    setStatusSort("default")
+  }
+
+  const resetFilters = () => {
+    setStatusFilter("all")
+    setTagFilter("all")
+    setPriorityFilter("all")
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-4">
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Priority sort
-          </Label>
-          <Select value={prioritySort} onValueChange={(value) => setPrioritySort(value as PrioritySort)}>
-            <SelectTrigger className="min-w-[180px]">
-              <SelectValue placeholder="Default" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Default order</SelectItem>
-              <SelectItem value="high-low">Highest priority first</SelectItem>
-              <SelectItem value="low-high">Lowest priority first</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Status sort
-          </Label>
-          <Select value={statusSort} onValueChange={(value) => setStatusSort(value as StatusSort)}>
-            <SelectTrigger className="min-w-[180px]">
-              <SelectValue placeholder="Default" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Default order</SelectItem>
-              <SelectItem value="az">Status A → Z</SelectItem>
-              <SelectItem value="za">Status Z → A</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Status filter
-          </Label>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="min-w-[180px]">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              {statusOptions.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Tag filter
-          </Label>
-          <Select value={tagFilter} onValueChange={setTagFilter}>
-            <SelectTrigger className="min-w-[180px]">
-              <SelectValue placeholder="All tags" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All tags</SelectItem>
-              {tagOptions.map((tag) => (
-                <SelectItem key={tag} value={tag}>
-                  {tag}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Priority filter
-          </Label>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="min-w-[180px]">
-              <SelectValue placeholder="All priorities" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All priorities</SelectItem>
-              {priorityOptions.map((priority) => (
-                <SelectItem key={priority} value={priority}>
-                  {priority}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="flex flex-wrap gap-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className={triggerButtonClass(isAnySortActive)}>
+              <span className="flex items-center gap-2 font-semibold">
+                <SlidersHorizontalIcon className="size-4" aria-hidden="true" />
+                Sorting
+              </span>
+              <ChevronDownIcon className="size-4" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel>Sorting</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Priority</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-60">
+                <DropdownMenuRadioGroup
+                  value={prioritySort}
+                  onValueChange={(value) => setPrioritySort(value as PrioritySort)}
+                >
+                  <DropdownMenuRadioItem value="default">Default order</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="high-low">
+                    Highest priority first
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="low-high">
+                    Lowest priority first
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-60">
+                <DropdownMenuRadioGroup
+                  value={statusSort}
+                  onValueChange={(value) => setStatusSort(value as StatusSort)}
+                >
+                  <DropdownMenuRadioItem value="default">Default order</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="az">Status A → Z</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="za">Status Z → A</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={!isAnySortActive}
+              onSelect={(event) => {
+                event.preventDefault()
+                if (isAnySortActive) resetSorts()
+              }}
+            >
+              Reset sorting
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className={triggerButtonClass(isAnyFilterActive)}>
+              <span className="flex items-center gap-2 font-semibold">
+                <FilterIcon className="size-4" aria-hidden="true" />
+                Filters
+              </span>
+              <ChevronDownIcon className="size-4" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel>Filters</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-64 max-h-64 overflow-y-auto">
+                <DropdownMenuRadioGroup value={statusFilter} onValueChange={setStatusFilter}>
+                  <DropdownMenuRadioItem value="all">All statuses</DropdownMenuRadioItem>
+                  {statusOptions.map((status) => (
+                    <DropdownMenuRadioItem key={status} value={status}>
+                      {status}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Tag</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-64 max-h-64 overflow-y-auto">
+                <DropdownMenuRadioGroup value={tagFilter} onValueChange={setTagFilter}>
+                  <DropdownMenuRadioItem value="all">All tags</DropdownMenuRadioItem>
+                  {tagOptions.map((tag) => (
+                    <DropdownMenuRadioItem key={tag} value={tag}>
+                      {tag}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Priority</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-64 max-h-64 overflow-y-auto">
+                <DropdownMenuRadioGroup
+                  value={priorityFilter}
+                  onValueChange={setPriorityFilter}
+                >
+                  <DropdownMenuRadioItem value="all">All priorities</DropdownMenuRadioItem>
+                  {priorityOptions.map((priority) => (
+                    <DropdownMenuRadioItem key={priority} value={priority}>
+                      {priority}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={!isAnyFilterActive}
+              onSelect={(event) => {
+                event.preventDefault()
+                if (isAnyFilterActive) resetFilters()
+              }}
+            >
+              Reset filters
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <ScrollArea className="rounded-xl border">
@@ -240,34 +316,43 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
                 </TableCell>
                 <TableCell className="max-w-[280px] whitespace-normal break-words">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                      {issue.identifier}
-                    </span>
                     <span className="text-sm font-medium text-primary">
                       {issue.title}
                     </span>
                     {issue.labels.length ? (
                       <div className="flex flex-wrap gap-1">
-                        {issue.labels.map((label) => (
-                          <Badge
-                            key={label.id}
-                            variant="outline"
-                            className="rounded-full border px-2 py-0.5 text-[11px] font-medium tracking-wide"
-                          >
-                            {label.color ? (
-                              <>
-                                <span
-                                  aria-hidden="true"
-                                  className="h-[6px] w-[6px] rounded-full"
-                                  style={{ backgroundColor: label.color }}
-                                />
-                                <span>{label.name}</span>
-                              </>
-                            ) : (
-                              label.name
-                            )}
-                          </Badge>
-                        ))}
+                        {issue.labels.map((label) => {
+                          if (!label.name) return null
+
+                          return (
+                            <Badge
+                              key={label.id}
+                              variant="outline"
+                              className="rounded-full border px-2 py-0.5 text-[11px] font-medium tracking-wide"
+                              asChild
+                            >
+                              <button
+                                type="button"
+                                onClick={() => setTagFilter(label.name)}
+                                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={`Filter by ${label.name}`}
+                              >
+                                {label.color ? (
+                                  <>
+                                    <span
+                                      aria-hidden="true"
+                                      className="h-[6px] w-[6px] rounded-full"
+                                      style={{ backgroundColor: label.color }}
+                                    />
+                                    <span>{label.name}</span>
+                                  </>
+                                ) : (
+                                  label.name
+                                )}
+                              </button>
+                            </Badge>
+                          )
+                        })}
                       </div>
                     ) : null}
                   </div>

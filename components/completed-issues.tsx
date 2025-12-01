@@ -2,17 +2,20 @@
 
 import { useMemo, useState } from "react"
 
-import { StatusBadge } from "@/components/project-issues"
 import { Badge } from "@/components/ui/badge"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { cn } from "@/lib/utils"
 import {
   Table,
   TableBody,
@@ -22,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { LinearIssue } from "@/lib/linear"
+import { ChevronDownIcon, FilterIcon } from "lucide-react"
 
 const RANGE_OPTIONS = [
   { label: "Last 7 days", value: "week", days: 7 },
@@ -29,9 +33,10 @@ const RANGE_OPTIONS = [
 ] as const
 
 type RangeValue = (typeof RANGE_OPTIONS)[number]["value"]
+const DEFAULT_RANGE: RangeValue = "week"
 
 export function CompletedIssues({ issues }: { issues: LinearIssue[] }) {
-  const [range, setRange] = useState<RangeValue>("week")
+  const [range, setRange] = useState<RangeValue>(DEFAULT_RANGE)
 
   const filteredIssues = useMemo(() => {
     const option = RANGE_OPTIONS.find((item) => item.value === range) ?? RANGE_OPTIONS[0]
@@ -47,24 +52,8 @@ export function CompletedIssues({ issues }: { issues: LinearIssue[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Completed within
-          </Label>
-          <Select value={range} onValueChange={(value) => setRange(value as RangeValue)}>
-            <SelectTrigger className="min-w-[180px]">
-              <SelectValue placeholder="Last 7 days" />
-            </SelectTrigger>
-            <SelectContent>
-              {RANGE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="flex flex-wrap gap-3">
+        <CompletedFilter range={range} onRangeChange={setRange} />
       </div>
 
       <ScrollArea className="rounded-xl border">
@@ -74,7 +63,6 @@ export function CompletedIssues({ issues }: { issues: LinearIssue[] }) {
               <TableHead>Issue</TableHead>
               <TableHead>Assignee</TableHead>
               <TableHead>Completed</TableHead>
-              <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -83,9 +71,6 @@ export function CompletedIssues({ issues }: { issues: LinearIssue[] }) {
                 <TableRow key={issue.id}>
                   <TableCell className="max-w-[280px] whitespace-normal break-words">
                     <div className="flex flex-col gap-1">
-                      <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                        {issue.identifier}
-                      </span>
                       <span className="text-sm font-medium text-primary">
                         {issue.title}
                       </span>
@@ -117,14 +102,11 @@ export function CompletedIssues({ issues }: { issues: LinearIssue[] }) {
                   </TableCell>
                   <TableCell>{issue.assignee?.name ?? "Unassigned"}</TableCell>
                   <TableCell>{formatCompletedDate(issue.completedAt)}</TableCell>
-                  <TableCell>
-                    <StatusBadge name={issue.state.name} color={issue.state.color} />
-                  </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
+                <TableCell colSpan={3} className="text-center text-sm text-muted-foreground">
                   No completed issues in this timeframe
                 </TableCell>
               </TableRow>
@@ -133,6 +115,61 @@ export function CompletedIssues({ issues }: { issues: LinearIssue[] }) {
         </Table>
       </ScrollArea>
     </div>
+  )
+}
+
+function CompletedFilter({
+  range,
+  onRangeChange,
+}: {
+  range: RangeValue
+  onRangeChange: (value: RangeValue) => void
+}) {
+  const isActive = range !== DEFAULT_RANGE
+  const triggerClass = cn(
+    "min-w-[220px] justify-between",
+    isActive ? "border-primary bg-primary/5 text-primary shadow-sm" : undefined
+  )
+
+  const handleReset = () => onRangeChange(DEFAULT_RANGE)
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className={triggerClass}>
+          <span className="flex items-center gap-2 font-semibold">
+            <FilterIcon className="size-4" aria-hidden="true" />
+            Completed within
+          </span>
+          <ChevronDownIcon className="size-4" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuLabel>Completed within</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuRadioGroup
+          value={range}
+          onValueChange={(value) => onRangeChange(value as RangeValue)}
+        >
+          {RANGE_OPTIONS.map((option) => (
+            <DropdownMenuRadioItem key={option.value} value={option.value}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          disabled={!isActive}
+          onSelect={(event) => {
+            event.preventDefault()
+            if (!isActive) return
+            handleReset()
+          }}
+        >
+          Reset
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
