@@ -1,3 +1,4 @@
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ProjectIssues } from "@/components/project-issues"
@@ -42,6 +43,9 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-16">
+        <div className="flex justify-end">
+          <ThemeToggle />
+        </div>
         {projectData ? (
           <section className="space-y-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
@@ -49,13 +53,6 @@ export default async function Home() {
                 <p className="text-sm uppercase tracking-wide text-muted-foreground">Active issues</p>
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-2xl font-semibold">{projectData.projectName}</h1>
-                  {projectData.projectUrl ? (
-                    <Button variant="link" asChild className="px-0 text-base">
-                      <a href={projectData.projectUrl} target="_blank" rel="noreferrer">
-                        View in Linear
-                      </a>
-                    </Button>
-                  ) : null}
                 </div>
               </div>
               <p className="text-sm text-muted-foreground">

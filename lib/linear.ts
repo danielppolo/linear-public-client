@@ -4,6 +4,12 @@ type LinearIssueState = {
   color?: string | null
 }
 
+export type LinearIssueLabel = {
+  id: string
+  name: string
+  color?: string | null
+}
+
 export type LinearIssue = {
   id: string
   identifier: string
@@ -17,6 +23,7 @@ export type LinearIssue = {
     name: string
   } | null
   state: LinearIssueState
+  labels: LinearIssueLabel[]
 }
 
 export type LinearProjectIssues = {
@@ -85,6 +92,13 @@ const PROJECT_ISSUES_QUERY = /* GraphQL */ `
             id
             name
           }
+          labels(first: 5) {
+            nodes {
+              id
+              name
+              color
+            }
+          }
         }
       }
     }
@@ -107,6 +121,12 @@ const LIST_PROJECTS_QUERY = /* GraphQL */ `
   }
 `
 
+type LinearIssueNode = Omit<LinearIssue, "labels"> & {
+  labels?: {
+    nodes?: Array<LinearIssueLabel | null> | null
+  } | null
+}
+
 type ProjectIssuesResponse = {
   data?: {
     project?: {
@@ -114,7 +134,7 @@ type ProjectIssuesResponse = {
       name: string
       url?: string | null
       issues: {
-        nodes: LinearIssue[]
+        nodes: LinearIssueNode[]
       }
     } | null
   }
@@ -167,11 +187,18 @@ export async function fetchLinearProjectIssues(
     throw new Error(`Linear project ${projectId} not found`)
   }
 
+  const issues: LinearIssue[] =
+    project.issues.nodes?.map(({ labels, ...issue }) => ({
+      ...issue,
+      labels:
+        labels?.nodes?.filter((label): label is LinearIssueLabel => Boolean(label)) ?? [],
+    })) ?? []
+
   return {
     projectId: project.id,
     projectName: project.name,
     projectUrl: project.url,
-    issues: project.issues.nodes ?? [],
+    issues,
   }
 }
 
