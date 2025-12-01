@@ -4,13 +4,8 @@ import { useMemo, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Select,
   SelectContent,
@@ -18,6 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import type { LinearIssue } from "@/lib/linear"
 
 function formatDueDate(date?: string | null) {
@@ -44,6 +47,22 @@ type StatusSort = "default" | "az" | "za"
 export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
   const [prioritySort, setPrioritySort] = useState<PrioritySort>("default")
   const [statusSort, setStatusSort] = useState<StatusSort>("default")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+
+  const statusOptions = useMemo(() => {
+    const labels = new Set<string>()
+    issues.forEach((issue) => {
+      if (issue.state?.name) {
+        labels.add(issue.state.name)
+      }
+    })
+    return Array.from(labels).sort((a, b) => a.localeCompare(b))
+  }, [issues])
+
+  const filteredIssues = useMemo(() => {
+    if (statusFilter === "all") return issues
+    return issues.filter((issue) => issue.state?.name === statusFilter)
+  }, [issues, statusFilter])
 
   const sortedIssues = useMemo(() => {
     const comparator = (a: LinearIssue, b: LinearIssue) => {
@@ -63,12 +82,12 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
       return a.identifier.localeCompare(b.identifier)
     }
 
-    return [...issues].sort(comparator)
-  }, [issues, prioritySort, statusSort])
+    return [...filteredIssues].sort(comparator)
+  }, [filteredIssues, prioritySort, statusSort])
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-4 rounded-lg border bg-card/50 p-4">
+      <div className="flex flex-wrap gap-4 rounded-lg border bg-card/40 p-4">
         <div className="space-y-2">
           <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Priority sort
@@ -99,73 +118,79 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Status filter
+          </Label>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="min-w-[180px]">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {statusOptions.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      <div className="grid gap-4">
-        {sortedIssues.map((issue) => (
-          <Card key={issue.id} className="transition-colors hover:border-primary/40">
-            <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  {issue.identifier}
-                </p>
-                <CardTitle className="text-xl leading-tight">
-                  <a
-                    href={issue.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-primary hover:underline"
+      <ScrollArea className="rounded-xl border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Issue</TableHead>
+              <TableHead>Assignee</TableHead>
+              <TableHead>Priority</TableHead>
+              <TableHead>Due</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedIssues.map((issue) => (
+              <TableRow key={issue.id}>
+                <TableCell className="max-w-[280px]">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      {issue.identifier}
+                    </span>
+                    <a
+                      href={issue.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      {issue.title}
+                    </a>
+                  </div>
+                </TableCell>
+                <TableCell>{issue.assignee?.name ?? "Unassigned"}</TableCell>
+                <TableCell>{formatPriority(issue.priorityLabel, issue.priority)}</TableCell>
+                <TableCell>{formatDueDate(issue.dueDate)}</TableCell>
+                <TableCell>
+                  <Badge
+                    className="uppercase tracking-wide"
+                    style={
+                      issue.state.color
+                        ? {
+                            backgroundColor: issue.state.color,
+                            borderColor: issue.state.color,
+                            color: "#0a0a0a",
+                          }
+                        : undefined
+                    }
                   >
-                    {issue.title}
-                  </a>
-                </CardTitle>
-              </div>
-              <Badge
-                className="uppercase tracking-wide"
-                style={
-                  issue.state.color
-                    ? {
-                        backgroundColor: issue.state.color,
-                        borderColor: issue.state.color,
-                        color: "#0a0a0a",
-                      }
-                    : undefined
-                }
-              >
-                {issue.state.name}
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid gap-4 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-1">
-                  <dt className="text-[11px] uppercase tracking-wide">Assignee</dt>
-                  <dd className="text-base text-foreground">{issue.assignee?.name ?? "Unassigned"}</dd>
-                </div>
-                <div className="space-y-1">
-                  <dt className="text-[11px] uppercase tracking-wide">Priority</dt>
-                  <dd className="text-base text-foreground">
-                    {formatPriority(issue.priorityLabel, issue.priority)}
-                  </dd>
-                </div>
-                <div className="space-y-1">
-                  <dt className="text-[11px] uppercase tracking-wide">Due</dt>
-                  <dd className="text-base text-foreground">{formatDueDate(issue.dueDate)}</dd>
-                </div>
-                <div className="space-y-1">
-                  <dt className="text-[11px] uppercase tracking-wide">Link</dt>
-                  <dd>
-                    <Button variant="link" asChild className="px-0 text-base">
-                      <a href={issue.url} target="_blank" rel="noreferrer">
-                        Open issue
-                      </a>
-                    </Button>
-                  </dd>
-                </div>
-              </dl>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                    {issue.state.name}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </ScrollArea>
     </div>
   )
 }
