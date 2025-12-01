@@ -227,20 +227,7 @@ export function ProjectIssues({ issues }: { issues: LinearIssue[] }) {
                   />
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    className="uppercase tracking-wide"
-                    style={
-                      issue.state.color
-                        ? {
-                            backgroundColor: issue.state.color,
-                            borderColor: issue.state.color,
-                            color: "#0a0a0a",
-                          }
-                        : undefined
-                    }
-                  >
-                    {issue.state.name}
-                  </Badge>
+                  <StatusBadge name={issue.state.name} color={issue.state.color} />
                 </TableCell>
               </TableRow>
             ))}
@@ -349,4 +336,27 @@ function getPriorityTier(label: string, priorityValue?: number | null): Priority
   }
 
   return "none"
+}
+
+function StatusBadge({ name, color }: { name?: string | null; color?: string | null }) {
+  if (!name) {
+    return <Badge className="uppercase tracking-wide">Unknown</Badge>
+  }
+
+  return (
+    <Badge
+      className="uppercase tracking-wide"
+      style={
+        color
+          ? {
+              backgroundColor: color,
+              borderColor: color,
+              color: "#0a0a0a",
+            }
+          : undefined
+      }
+    >
+      {name}
+    </Badge>
+  )
 }
