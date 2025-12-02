@@ -1,4 +1,5 @@
 import { ProjectConfig } from "@/lib/config"
+import type { CustomerRequestStatus, CustomerRequestMetadata } from "@/lib/types/customer-request"
 
 type LinearIssueState = {
   id: string
@@ -431,4 +432,171 @@ export async function fetchLinearProjects(options?: {
   }
 
   return payload.data?.projects?.nodes ?? []
+}
+
+const CREATE_ISSUE_MUTATION = /* GraphQL */ `
+  mutation CreateIssue($teamId: String!, $title: String!, $description: String, $priority: Int, $labelIds: [String!]) {
+    issueCreate(
+      input: {
+        teamId: $teamId
+        title: $title
+        description: $description
+        priority: $priority
+        labelIds: $labelIds
+      }
+    ) {
+      success
+      issue {
+        id
+        identifier
+        title
+        url
+      }
+    }
+  }
+`
+
+type CreateIssueResponse = {
+  data?: {
+    issueCreate?: {
+      success: boolean
+      issue?: {
+        id: string
+        identifier: string
+        title: string
+        url: string
+      } | null
+    } | null
+  }
+  errors?: Array<{ message: string }>
+}
+
+export type CreateLinearIssueResult = {
+  id: string
+  identifier: string
+  url: string
+}
+
+export type StructuredIssueFields = {
+  title: string
+  description: string
+  labels?: string[]
+  priority?: number
+}
+
+export async function createLinearIssue(
+  teamId: string,
+  content: string,
+  type: "bug" | "feature",
+  metadata?: CustomerRequestMetadata,
+  options?: { config?: ProjectConfig; structuredFields?: StructuredIssueFields }
+): Promise<CreateLinearIssueResult> {
+  const apiKey = requireLinearApiKey(options?.config)
+
+  // Use structured fields if provided, otherwise fall back to default formatting
+  let title: string
+  let description: string
+  let priority: number | undefined
+  let labelIds: string[] | undefined
+
+  if (options?.structuredFields) {
+    title = options.structuredFields.title
+    description = options.structuredFields.description
+    priority = options.structuredFields.priority
+    // Note: Labels require fetching label IDs from Linear first
+    // For Phase 3, we'll skip labels if not resolved, or implement label resolution
+    labelIds = undefined // Will be implemented if label names are provided
+  } else {
+    // Fallback: Format title: [Bug] or [Feature] prefix + truncated content (max 100 chars)
+    const prefix = type === "bug" ? "[Bug]" : "[Feature]"
+    const truncatedContent = content.length > 100 ? content.substring(0, 97) + "..." : content
+    title = `${prefix} ${truncatedContent}`
+
+    // Format description: full content + structured metadata section
+    description = content
+
+    if (metadata && Object.keys(metadata).length > 0) {
+      const metadataSection = `\n\n---\n\n**Metadata:**\n\`\`\`json\n${JSON.stringify(metadata, null, 2)}\n\`\`\``
+      description += metadataSection
+    }
+  }
+
+  const variables: {
+    teamId: string
+    title: string
+    description: string
+    priority?: number
+    labelIds?: string[]
+  } = {
+    teamId,
+    title,
+    description,
+  }
+
+  if (priority !== undefined) {
+    variables.priority = priority
+  }
+
+  if (labelIds && labelIds.length > 0) {
+    variables.labelIds = labelIds
+  }
+
+  const response = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: apiKey,
+    },
+    body: JSON.stringify({
+      query: CREATE_ISSUE_MUTATION,
+      variables,
+    }),
+    cache: "no-store",
+    next: { revalidate: 0 },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Linear request failed with status ${response.status}`)
+  }
+
+  const payload = (await response.json()) as CreateIssueResponse
+
+  if (payload.errors?.length) {
+    throw new Error(payload.errors.map((error) => error.message).join(", "))
+  }
+
+  const issueCreate = payload.data?.issueCreate
+
+  if (!issueCreate?.success || !issueCreate.issue) {
+    throw new Error("Failed to create Linear issue")
+  }
+
+  return {
+    id: issueCreate.issue.id,
+    identifier: issueCreate.issue.identifier,
+    url: issueCreate.issue.url,
+  }
+}
+
+export function mapLinearStateToStatus(linearStateName: string): CustomerRequestStatus {
+  const normalized = linearStateName.toLowerCase().trim()
+
+  if (normalized === "backlog" || normalized === "todo") {
+    return "triaged"
+  }
+
+  if (normalized === "in progress" || normalized === "in_progress") {
+    return "in_progress"
+  }
+
+  if (normalized === "completed" || normalized === "done") {
+    return "resolved"
+  }
+
+  if (normalized === "canceled" || normalized === "cancelled") {
+    return "cancelled"
+  }
+
+  // Default to pending for unknown states
+  return "pending"
 }

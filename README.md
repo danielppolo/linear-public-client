@@ -41,6 +41,86 @@ npm run linear:projects [limit]
 
 The optional `limit` argument controls how many projects are returned (defaults to 25). Ensure `LINEAR_API_KEY` is exported or stored in `.env.local` so the script can authenticate.
 
+## API Configuration
+
+### Customer Requests API
+
+The API endpoints require bearer token authentication. Add the following to your `.env.local`:
+
+```
+API_BEARER_TOKEN=your-secret-bearer-token-here
+```
+
+All endpoints under `/v1/customer-requests` require the `Authorization: Bearer <TOKEN>` header.
+
+### Webhook Authentication
+
+For the Linear webhook endpoint (`/v1/webhooks/linear`), you can use either:
+
+**Option 1: Bearer Token**
+```
+WEBHOOK_BEARER_TOKEN=your-webhook-bearer-token-here
+```
+
+**Option 2: HMAC-SHA256 Signature (Linear's signing secret)**
+```
+LINEAR_WEBHOOK_SECRET=your-linear-webhook-secret-here
+```
+
+If neither is configured, webhook authentication is skipped (development only). In production, at least one should be configured.
+
+### Database Configuration
+
+For Cloudflare D1 database access:
+
+```
+D1_DATABASE_ID=your-d1-database-id
+CLOUDFLARE_ACCOUNT_ID=your-cloudflare-account-id
+CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
+```
+
+### OpenAI Integration (Phase 3)
+
+To enable AI-powered issue structuring and user response generation:
+
+```
+ENABLE_AI=true
+OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX
+OPENAI_MODEL=gpt-4o-mini  # Optional, defaults to gpt-4o-mini
+```
+
+When `ENABLE_AI=true`:
+- Customer requests are automatically structured into well-formed Linear issues
+- User-facing confirmation messages are generated after issue creation
+- Resolution messages are generated when issues are marked as resolved
+
+If OpenAI fails or is disabled, the system falls back to default behavior.
+
+### Complete Environment Variables
+
+```
+# Linear API
+LINEAR_API_KEY=sk_XXXXXXXXXXXXXXXXXXXX
+LINEAR_PROJECT_ID=proj_XXXXXXXXXXXXXXX
+
+# API Authentication
+API_BEARER_TOKEN=your-api-bearer-token
+
+# Webhook Authentication (choose one or both)
+WEBHOOK_BEARER_TOKEN=your-webhook-bearer-token
+LINEAR_WEBHOOK_SECRET=your-linear-webhook-secret
+
+# Cloudflare D1
+D1_DATABASE_ID=your-d1-database-id
+CLOUDFLARE_ACCOUNT_ID=your-cloudflare-account-id
+CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
+
+# OpenAI (Phase 3 - Optional)
+ENABLE_AI=true
+OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX
+OPENAI_MODEL=gpt-4o-mini
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
