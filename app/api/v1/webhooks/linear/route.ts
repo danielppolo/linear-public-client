@@ -147,7 +147,7 @@ async function handleIssueEvent(event: LinearWebhookEvent) {
     return
   }
 
-  const customerRequest = parseCustomerRequest(result.results[0])
+  const customerRequest = parseCustomerRequest(result.results[0]?.results?.[0])
   const newStatus = mapLinearStateToStatus(state.name)
 
   // Only update if status changed
