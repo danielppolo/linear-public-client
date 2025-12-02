@@ -196,7 +196,7 @@ function parseCustomerRequest(row: unknown): CustomerRequest {
     status: r.status as CustomerRequest["status"],
     external_user_id: String(r.external_user_id),
     user_name: r.user_name ? String(r.user_name) : null,
-    team_id: String(r.team_id),
+    project_id: String(r.project_id),
     linear_issue_id: r.linear_issue_id ? String(r.linear_issue_id) : null,
     response: r.response ? String(r.response) : null,
     source: r.source ? String(r.source) : null,

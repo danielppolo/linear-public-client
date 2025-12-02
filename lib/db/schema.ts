@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS ${CUSTOMER_REQUESTS_TABLE} (
   status TEXT NOT NULL CHECK (status IN ('pending', 'triaged', 'in_progress', 'resolved', 'closed', 'cancelled', 'error')),
   external_user_id TEXT NOT NULL,
   user_name TEXT,
-  team_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
   linear_issue_id TEXT,
   response TEXT,
   source TEXT,

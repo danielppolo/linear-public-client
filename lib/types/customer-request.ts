@@ -45,7 +45,7 @@ export interface CustomerRequest {
   status: CustomerRequestStatus
   external_user_id: string
   user_name: string | null
-  team_id: string
+  project_id: string
   linear_issue_id: string | null
   response: string | null
   source: string | null
@@ -58,7 +58,7 @@ export interface CreateCustomerRequestInput {
   type: CustomerRequestType
   external_user_id: string
   user_name?: string
-  team_id: string
+  project_id: string
   source?: string
   metadata?: CustomerRequestMetadata
 }

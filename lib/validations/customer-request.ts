@@ -19,7 +19,7 @@ export const createCustomerRequestSchema = z.object({
   type: customerRequestTypeSchema,
   external_user_id: z.string().min(1, "external_user_id is required"),
   user_name: z.string().optional(),
-  team_id: z.string().min(1, "team_id is required"),
+  project_id: z.string().min(1, "project_id is required"),
   source: z.string().optional(),
   metadata: customerRequestMetadataSchema,
 })

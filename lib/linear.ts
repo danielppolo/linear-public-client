@@ -435,10 +435,11 @@ export async function fetchLinearProjects(options?: {
 }
 
 const CREATE_ISSUE_MUTATION = /* GraphQL */ `
-  mutation CreateIssue($teamId: String!, $title: String!, $description: String, $priority: Int, $labelIds: [String!]) {
+  mutation CreateIssue($teamId: String!, $projectId: String!, $title: String!, $description: String, $priority: Int, $labelIds: [String!]) {
     issueCreate(
       input: {
         teamId: $teamId
+        projectId: $projectId
         title: $title
         description: $description
         priority: $priority
@@ -484,20 +485,29 @@ export type StructuredIssueFields = {
   priority?: number
 }
 
+// Default label ID to add to all issues. (#Customer)
+const DEFAULT_LABEL_ID = "428763e6-ffb4-4963-90d7-a3f3074537d0"
+
 export async function createLinearIssue(
-  teamId: string,
+  projectId: string,
   content: string,
   type: "bug" | "feature",
   metadata?: CustomerRequestMetadata,
   options?: { config?: ProjectConfig; structuredFields?: StructuredIssueFields }
 ): Promise<CreateLinearIssueResult> {
   const apiKey = requireLinearApiKey(options?.config)
+  
+  // Get teamId from environment variable (required by Linear API)
+  const teamId = process.env.LINEAR_TEAM_ID?.trim()
+  if (!teamId) {
+    throw new Error("Missing LINEAR_TEAM_ID. Add it to your environment to create Linear issues.")
+  }
 
   // Use structured fields if provided, otherwise fall back to default formatting
   let title: string
   let description: string
   let priority: number | undefined
-  let labelIds: string[] | undefined
+  const labelIds: string[] = [DEFAULT_LABEL_ID] // Always include the default label
 
   if (options?.structuredFields) {
     title = options.structuredFields.title
@@ -505,7 +515,7 @@ export async function createLinearIssue(
     priority = options.structuredFields.priority
     // Note: Labels require fetching label IDs from Linear first
     // For Phase 3, we'll skip labels if not resolved, or implement label resolution
-    labelIds = undefined // Will be implemented if label names are provided
+    // Always include the default label even if structured fields are provided
   } else {
     // Fallback: Format title: [Bug] or [Feature] prefix + truncated content (max 100 chars)
     const prefix = type === "bug" ? "[Bug]" : "[Feature]"
@@ -523,22 +533,21 @@ export async function createLinearIssue(
 
   const variables: {
     teamId: string
+    projectId: string
     title: string
     description: string
     priority?: number
     labelIds?: string[]
   } = {
     teamId,
+    projectId,
     title,
     description,
+    labelIds, // Always include the default label
   }
 
   if (priority !== undefined) {
     variables.priority = priority
-  }
-
-  if (labelIds && labelIds.length > 0) {
-    variables.labelIds = labelIds
   }
 
   const response = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
@@ -556,25 +565,165 @@ export async function createLinearIssue(
   })
 
   if (!response.ok) {
+    console.error(await response.json())
     throw new Error(`Linear request failed with status ${response.status}`)
   }
 
   const payload = (await response.json()) as CreateIssueResponse
 
   if (payload.errors?.length) {
+    console.error(payload.errors)
     throw new Error(payload.errors.map((error) => error.message).join(", "))
   }
 
   const issueCreate = payload.data?.issueCreate
 
   if (!issueCreate?.success || !issueCreate.issue) {
+    console.error(issueCreate)
     throw new Error("Failed to create Linear issue")
   }
+  console.log(issueCreate)
 
   return {
     id: issueCreate.issue.id,
     identifier: issueCreate.issue.identifier,
     url: issueCreate.issue.url,
+  }
+}
+
+const UPDATE_ISSUE_LABELS_MUTATION = /* GraphQL */ `
+  mutation UpdateIssueLabels($issueId: String!, $labelIds: [String!]!) {
+    issueUpdate(
+      id: $issueId
+      input: {
+        labelIds: $labelIds
+      }
+    ) {
+      success
+      issue {
+        id
+        identifier
+      }
+    }
+  }
+`
+
+type UpdateIssueLabelsResponse = {
+  data?: {
+    issueUpdate?: {
+      success: boolean
+      issue?: {
+        id: string
+        identifier: string
+      } | null
+    } | null
+  }
+  errors?: Array<{ message: string }>
+}
+
+export async function addLabelToLinearIssue(
+  issueId: string,
+  options?: { config?: ProjectConfig }
+): Promise<void> {
+  const apiKey = requireLinearApiKey(options?.config)
+
+  // First, fetch the issue to get existing labels
+  const GET_ISSUE_QUERY = /* GraphQL */ `
+    query GetIssue($issueId: String!) {
+      issue(id: $issueId) {
+        id
+        labels {
+          nodes {
+            id
+          }
+        }
+      }
+    }
+  `
+
+  const getIssueResponse = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: apiKey,
+    },
+    body: JSON.stringify({
+      query: GET_ISSUE_QUERY,
+      variables: { issueId },
+    }),
+    cache: "no-store",
+    next: { revalidate: 0 },
+  })
+
+  if (!getIssueResponse.ok) {
+    throw new Error(`Linear request failed with status ${getIssueResponse.status}`)
+  }
+
+  const getIssuePayload = (await getIssueResponse.json()) as {
+    data?: {
+      issue?: {
+        id: string
+        labels?: {
+          nodes?: Array<{ id: string } | null> | null
+        } | null
+      } | null
+    }
+    errors?: Array<{ message: string }>
+  }
+
+  if (getIssuePayload.errors?.length) {
+    throw new Error(getIssuePayload.errors.map((error) => error.message).join(", "))
+  }
+
+  const issue = getIssuePayload.data?.issue
+  if (!issue) {
+    throw new Error(`Linear issue ${issueId} not found`)
+  }
+
+  // Get existing label IDs
+  const existingLabelIds =
+    issue.labels?.nodes?.filter((label): label is { id: string } => Boolean(label)).map((label) => label.id) ?? []
+
+  // Check if the default label is already present
+  if (existingLabelIds.includes(DEFAULT_LABEL_ID)) {
+    return // Label already exists, no need to update
+  }
+
+  // Add the default label to existing labels
+  const updatedLabelIds = [...existingLabelIds, DEFAULT_LABEL_ID]
+
+  // Update the issue with the new labels
+  const updateResponse = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: apiKey,
+    },
+    body: JSON.stringify({
+      query: UPDATE_ISSUE_LABELS_MUTATION,
+      variables: {
+        issueId,
+        labelIds: updatedLabelIds,
+      },
+    }),
+    cache: "no-store",
+    next: { revalidate: 0 },
+  })
+
+  if (!updateResponse.ok) {
+    throw new Error(`Linear request failed with status ${updateResponse.status}`)
+  }
+
+  const updatePayload = (await updateResponse.json()) as UpdateIssueLabelsResponse
+
+  if (updatePayload.errors?.length) {
+    throw new Error(updatePayload.errors.map((error) => error.message).join(", "))
+  }
+
+  const issueUpdate = updatePayload.data?.issueUpdate
+
+  if (!issueUpdate?.success) {
+    throw new Error("Failed to update Linear issue labels")
   }
 }
 

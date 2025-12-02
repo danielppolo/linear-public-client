@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     // Generate AI-structured issue suggestion if enabled
     let structuredFields: StructuredIssueFields | undefined
-    let metadata = validated.metadata || {}
+    const metadata = validated.metadata || {}
     
     try {
       const issueStructure = await generateIssueStructure({
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const insertSql = `
       INSERT INTO ${CUSTOMER_REQUESTS_TABLE} (
         id, created_at, updated_at, content, type, status,
-        external_user_id, user_name, team_id, source, metadata
+        external_user_id, user_name, project_id, source, metadata
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
 
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       "pending",
       validated.external_user_id,
       validated.user_name || null,
-      validated.team_id,
+      validated.project_id,
       validated.source || null,
       metadataJson,
     ])
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     let linearIssueIdentifier: string | null = null
     try {
       const linearIssue = await createLinearIssue(
-        validated.team_id,
+        validated.project_id,
         validated.content,
         validated.type,
         validated.metadata,
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
       throw new Error("Failed to retrieve created customer request")
     }
 
-    const customerRequest = parseCustomerRequest(result.results[0])
+    const customerRequest = parseCustomerRequest(result.results[0]?.results?.[0])
 
     return NextResponse.json(customerRequest, { status: 201 })
   } catch (error) {
@@ -218,9 +218,10 @@ export async function GET(request: NextRequest) {
     params.push(limit + 1) // Fetch one extra to determine if there's a next page
 
     const result = await db.query<CustomerRequest>(sql, params)
+    const results = result.results[0]?.results || []
 
-    const items = result.results.slice(0, limit).map(parseCustomerRequest)
-    const nextCursor = result.results.length > limit ? result.results[limit - 1].id : null
+    const items = results.slice(0, limit).map(parseCustomerRequest)
+    const nextCursor = results.length > limit ? results[limit - 1].id : null
 
     return NextResponse.json({
       items,
@@ -251,7 +252,7 @@ function parseCustomerRequest(row: unknown): CustomerRequest {
     status: r.status as CustomerRequest["status"],
     external_user_id: String(r.external_user_id),
     user_name: r.user_name ? String(r.user_name) : null,
-    team_id: String(r.team_id),
+    project_id: String(r.project_id),
     linear_issue_id: r.linear_issue_id ? String(r.linear_issue_id) : null,
     response: r.response ? String(r.response) : null,
     source: r.source ? String(r.source) : null,

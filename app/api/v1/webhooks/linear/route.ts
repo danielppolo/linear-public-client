@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createHmac } from "crypto"
 import { getD1Client } from "@/lib/db/get-client"
 import { CUSTOMER_REQUESTS_TABLE } from "@/lib/db/schema"
-import { mapLinearStateToStatus } from "@/lib/linear"
+import { mapLinearStateToStatus, addLabelToLinearIssue } from "@/lib/linear"
 import { formatErrorResponse, WebhookAuthError } from "@/lib/errors"
 import { verifyBearerToken } from "@/lib/auth/bearer"
 import { generateResolutionResponse } from "@/lib/openai/responses"
@@ -115,7 +115,22 @@ async function handleIssueEvent(event: LinearWebhookEvent) {
   const issueId = event.data.id
   const state = event.data.state
 
-  if (!issueId || !state) {
+  if (!issueId) {
+    return
+  }
+
+  // If this is a new issue creation, add the default label
+  if (event.action === "create") {
+    try {
+      await addLabelToLinearIssue(issueId)
+    } catch (error) {
+      // Log but don't fail - label addition is best effort
+      console.error("Failed to add label to Linear issue:", error)
+    }
+  }
+
+  // If there's no state, we can't update the status, so return early
+  if (!state) {
     return
   }
 
@@ -243,7 +258,7 @@ function parseCustomerRequest(row: unknown): CustomerRequest {
     status: r.status as CustomerRequest["status"],
     external_user_id: String(r.external_user_id),
     user_name: r.user_name ? String(r.user_name) : null,
-    team_id: String(r.team_id),
+    project_id: String(r.project_id),
     linear_issue_id: r.linear_issue_id ? String(r.linear_issue_id) : null,
     response: r.response ? String(r.response) : null,
     source: r.source ? String(r.source) : null,
