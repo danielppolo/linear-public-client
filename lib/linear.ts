@@ -730,15 +730,23 @@ export async function addLabelToLinearIssue(
 export function mapLinearStateToStatus(linearStateName: string): CustomerRequestStatus {
   const normalized = linearStateName.toLowerCase().trim()
 
-  if (normalized === "backlog" || normalized === "todo") {
+  if (normalized === "backlog") {
     return "triaged"
+  }
+
+  if (normalized === "todo") {
+    return "pending"
   }
 
   if (normalized === "in progress" || normalized === "in_progress") {
     return "in_progress"
   }
 
-  if (normalized === "completed" || normalized === "done") {
+  if (normalized === "in review" || normalized === "in_review") {
+    return "in_review"
+  }
+
+  if (normalized === "done") {
     return "resolved"
   }
 
@@ -749,3 +757,4 @@ export function mapLinearStateToStatus(linearStateName: string): CustomerRequest
   // Default to pending for unknown states
   return "pending"
 }
+

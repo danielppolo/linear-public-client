@@ -7,6 +7,7 @@ export type CustomerRequestStatus =
   | "resolved"
   | "closed"
   | "cancelled"
+  | "in_review"
   | "error"
 
 export type CustomerRequestMetadata = {
