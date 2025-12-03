@@ -43,6 +43,8 @@ The optional `limit` argument controls how many projects are returned (defaults 
 
 ## API Configuration
 
+For detailed API documentation, see [API.md](./API.md).
+
 ### Customer Requests API
 
 The API endpoints require bearer token authentication. Add the following to your `.env.local`:

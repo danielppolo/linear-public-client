@@ -1,13 +1,13 @@
 export type CustomerRequestType = "bug" | "feature"
 
 export type CustomerRequestStatus =
-  | "pending"
-  | "triaged"
-  | "in_progress"
+| "triaged"
+ | "pending"
+ | "in_progress"
+  | "in_review"
   | "resolved"
   | "closed"
   | "cancelled"
-  | "in_review"
   | "error"
 
 export type CustomerRequestMetadata = {
