@@ -165,22 +165,22 @@ export async function generateResolutionResponse(
 
     const { user_name, original_content, latest_comment_text, linear_issue_identifier } = input
 
-    let prompt = `Generate a clear, concise message informing a customer that their issue has been resolved.
+    let prompt = `Genera un mensaje claro y conciso en español informando a un cliente que su solicitud ha sido resuelta.
 
-Customer name: ${user_name || "Customer"}
-Original request: ${original_content}
-Issue identifier: ${linear_issue_identifier}`
+Nombre del cliente: ${user_name || "Cliente"}
+Solicitud original: ${original_content}
+Identificador del issue: ${linear_issue_identifier}`
 
     if (latest_comment_text) {
-      prompt += `\n\nDeveloper's explanation: ${latest_comment_text}`
+      prompt += `\n\nExplicación del desarrollador: ${latest_comment_text}`
     }
 
-    prompt += `\n\nWrite a brief message (3-4 sentences) that:
-1. Confirms their ${original_content.includes("bug") ? "bug has been fixed" : "feature has been implemented"}
-2. Explains where to find it or how to use it (based on the developer's explanation if provided)
-3. Thanks them for their patience
+    prompt += `\n\nEscribe un mensaje breve (3-4 oraciones) en español que:
+1. Confirme que su ${original_content.includes("bug") || original_content.includes("error") ? "error ha sido corregido" : "solicitud ha sido implementada"}
+2. Explique dónde encontrarlo o cómo usarlo (basado en la explicación del desarrollador si se proporciona)
+3. Agradezca su paciencia
 
-Keep it clear, helpful, and professional. Return ONLY the message text, no quotes or additional formatting.`
+Mantén el mensaje claro, útil y profesional. Devuelve SOLO el texto del mensaje, sin comillas ni formato adicional.`
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -194,7 +194,7 @@ Keep it clear, helpful, and professional. Return ONLY the message text, no quote
           {
             role: "system",
             content:
-              "You are a customer support assistant. Write clear, helpful messages explaining technical solutions in simple terms.",
+              "Eres un asistente de atención al cliente. Escribe mensajes claros y útiles en español explicando soluciones técnicas en términos simples.",
           },
           {
             role: "user",

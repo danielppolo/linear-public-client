@@ -492,10 +492,14 @@ export async function createLinearIssue(
   projectId: string,
   content: string,
   type: "bug" | "feature",
-  metadata?: CustomerRequestMetadata,
-  options?: { config?: ProjectConfig; structuredFields?: StructuredIssueFields }
+  options?: {
+    reason?: string,
+    user_name?: string,
+    external_user_id?: string,
+  },
+  metadata?: CustomerRequestMetadata
 ): Promise<CreateLinearIssueResult> {
-  const apiKey = requireLinearApiKey(options?.config)
+  const apiKey = requireLinearApiKey()
   
   // Get teamId from environment variable (required by Linear API)
   const teamId = process.env.LINEAR_TEAM_ID?.trim()
@@ -503,40 +507,44 @@ export async function createLinearIssue(
     throw new Error("Missing LINEAR_TEAM_ID. Add it to your environment to create Linear issues.")
   }
 
-  // Use structured fields if provided, otherwise fall back to default formatting
-  let title: string
-  let description: string
-  let priority: number | undefined
+  // Use content directly as title, no AI conversion
+  const title: string = content
   const labelIds: string[] = [DEFAULT_LABEL_ID] // Always include the default label
 
-  if (options?.structuredFields) {
-    title = options.structuredFields.title
-    description = options.structuredFields.description
-    priority = options.structuredFields.priority
-    // Note: Labels require fetching label IDs from Linear first
-    // For Phase 3, we'll skip labels if not resolved, or implement label resolution
-    // Always include the default label even if structured fields are provided
-  } else {
-    // Fallback: Format title: [Bug] or [Feature] prefix + truncated content (max 100 chars)
-    const prefix = type === "bug" ? "[Bug]" : "[Feature]"
-    const truncatedContent = content.length > 100 ? content.substring(0, 97) + "..." : content
-    title = `${prefix} ${truncatedContent}`
+  // Build description with user information, reason, and metadata
+  const descriptionParts: string[] = []
 
-    // Format description: full content + structured metadata section
-    description = content
-
-    if (metadata && Object.keys(metadata).length > 0) {
-      const metadataSection = `\n\n---\n\n**Metadata:**\n\`\`\`json\n${JSON.stringify(metadata, null, 2)}\n\`\`\``
-      description += metadataSection
-    }
+  // Add user information (external_user_id is required, user_name is optional)
+  const userInfo: string[] = []
+  if (options?.external_user_id) {
+    userInfo.push(`**User ID:** ${options.external_user_id}`)
   }
+  if (options?.user_name) {
+    userInfo.push(`**User Name:** ${options.user_name}`)
+  }
+  if (userInfo.length > 0) {
+    descriptionParts.push(userInfo.join("\n"))
+  }
+
+  // Add reason if provided
+  if (options?.reason) {
+    descriptionParts.push(`**Reason:**\n${options.reason}`)
+  }
+
+  // Add metadata if present
+  if (metadata && Object.keys(metadata).length > 0) {
+    const metadataSection = `**Metadata:**\n\`\`\`json\n${JSON.stringify(metadata, null, 2)}\n\`\`\``
+    descriptionParts.push(metadataSection)
+  }
+
+  // Join all parts with separators
+  const description: string = descriptionParts.join("\n\n---\n\n")
 
   const variables: {
     teamId: string
     projectId: string
     title: string
     description: string
-    priority?: number
     labelIds?: string[]
   } = {
     teamId,
@@ -544,10 +552,6 @@ export async function createLinearIssue(
     title,
     description,
     labelIds, // Always include the default label
-  }
-
-  if (priority !== undefined) {
-    variables.priority = priority
   }
 
   const response = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
@@ -756,5 +760,88 @@ export function mapLinearStateToStatus(linearStateName: string): CustomerRequest
 
   // Default to pending for unknown states
   return "pending"
+}
+
+const GET_ISSUE_COMMENTS_QUERY = /* GraphQL */ `
+  query GetIssueComments($issueId: String!) {
+    issue(id: $issueId) {
+      id
+      comments(first: 10, orderBy: createdAt) {
+        nodes {
+          id
+          body
+          createdAt
+          user {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`
+
+type GetIssueCommentsResponse = {
+  data?: {
+    issue?: {
+      id: string
+      comments?: {
+        nodes?: Array<{
+          id: string
+          body: string
+          createdAt: string
+          user?: {
+            id: string
+            name: string
+          } | null
+        } | null> | null
+      } | null
+    } | null
+  }
+  errors?: Array<{ message: string }>
+}
+
+export async function fetchLinearIssueComments(issueId: string): Promise<string | null> {
+  const apiKey = requireLinearApiKey()
+
+  const response = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: apiKey,
+    },
+    body: JSON.stringify({
+      query: GET_ISSUE_COMMENTS_QUERY,
+      variables: { issueId },
+    }),
+    cache: "no-store",
+    next: { revalidate: 0 },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Linear request failed with status ${response.status}`)
+  }
+
+  const payload = (await response.json()) as GetIssueCommentsResponse
+
+  if (payload.errors?.length) {
+    throw new Error(payload.errors.map((error) => error.message).join(", "))
+  }
+
+  const issue = payload.data?.issue
+  if (!issue) {
+    return null
+  }
+
+  const comments = issue.comments?.nodes?.filter((comment): comment is NonNullable<typeof comment> => Boolean(comment)) ?? []
+  
+  // Return the latest comment body, or null if no comments
+  if (comments.length === 0) {
+    return null
+  }
+
+  // Comments are ordered by createdAt, so the last one is the latest
+  const latestComment = comments[comments.length - 1]
+  return latestComment.body || null
 }
 

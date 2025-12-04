@@ -4,10 +4,9 @@ import { ZodError } from "zod"
 import { createCustomerRequestSchema, listCustomerRequestsQuerySchema } from "@/lib/validations/customer-request"
 import { getD1Client } from "@/lib/db/get-client"
 import { CUSTOMER_REQUESTS_TABLE } from "@/lib/db/schema"
-import { createLinearIssue, type StructuredIssueFields } from "@/lib/linear"
+import { createLinearIssue } from "@/lib/linear"
 import { formatErrorResponse, ValidationError, LinearApiError, UnauthorizedError } from "@/lib/errors"
 import { requireBearerAuth } from "@/lib/auth/middleware"
-import { generateIssueStructure, generateCreationResponse } from "@/lib/openai/responses"
 import type { CustomerRequest } from "@/lib/types/customer-request"
 
 export async function POST(request: NextRequest) {
@@ -30,29 +29,8 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString()
 
     // Generate AI-structured issue suggestion if enabled
-    let structuredFields: StructuredIssueFields | undefined
     const metadata = validated.metadata || {}
-    
-    try {
-      const issueStructure = await generateIssueStructure({
-        content: validated.content,
-        type: validated.type,
-        metadata: validated.metadata,
-      })
 
-      if (issueStructure) {
-        structuredFields = {
-          title: issueStructure.title,
-          description: issueStructure.description,
-          labels: issueStructure.labels,
-          priority: issueStructure.priority,
-        }
-        metadata.model_issue_suggestion = issueStructure
-      }
-    } catch (error) {
-      // Log but don't fail - fall back to default behavior
-      console.error("Failed to generate issue structure with AI:", error)
-    }
 
     // Insert customer request with status = "pending"
     const insertSql = `
@@ -86,38 +64,23 @@ export async function POST(request: NextRequest) {
         validated.project_id,
         validated.content,
         validated.type,
-        validated.metadata,
         {
-          structuredFields,
+          reason: validated.reason,
+          user_name: validated.user_name,
+          external_user_id: validated.external_user_id,
         }
       )
       linearIssueId = linearIssue.id
       linearIssueIdentifier = linearIssue.identifier
 
-      // Generate user-facing response if AI is enabled
-      let responseText: string | null = null
-      try {
-        const creationResponse = await generateCreationResponse({
-          user_name: validated.user_name,
-          type: validated.type,
-          interpreted_request_summary: structuredFields?.title || validated.content.substring(0, 100),
-          linear_issue_identifier: linearIssue.identifier,
-        })
-        responseText = creationResponse
-      } catch (error) {
-        // Log but don't fail - response generation is optional
-        console.error("Failed to generate creation response with AI:", error)
-      }
-
-      // Update with linear_issue_id and response
+      // Update with linear_issue_id
       const updateSql = `
         UPDATE ${CUSTOMER_REQUESTS_TABLE}
-        SET linear_issue_id = ?, response = ?, updated_at = ?
+        SET linear_issue_id = ?, updated_at = ?
         WHERE id = ?
       `
       await db.execute(updateSql, [
         linearIssueId,
-        responseText,
         new Date().toISOString(),
         id,
       ])

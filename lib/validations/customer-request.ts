@@ -22,6 +22,7 @@ export const createCustomerRequestSchema = z.object({
   project_id: z.string().min(1, "project_id is required"),
   source: z.string().optional(),
   metadata: customerRequestMetadataSchema,
+  reason: z.string().optional(),
 })
 
 export const updateCustomerRequestSchema = z.object({

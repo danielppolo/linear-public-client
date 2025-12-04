@@ -62,6 +62,7 @@ export interface CreateCustomerRequestInput {
   project_id: string
   source?: string
   metadata?: CustomerRequestMetadata
+  reason?: string
 }
 
 export interface UpdateCustomerRequestInput {

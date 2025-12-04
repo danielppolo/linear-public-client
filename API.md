@@ -42,7 +42,8 @@ Creates a new customer request and automatically creates a corresponding Linear 
     "env": "production",
     "app_version": "1.0.0",
     // ... any additional metadata
-  }
+  },
+  "reason": "Additional context or reason for the request"  // Optional
 }
 ```
 
@@ -107,6 +108,7 @@ Creates a new customer request and automatically creates a corresponding Linear 
 **Notes:**
 
 - The request automatically creates a Linear issue in the specified project
+- If provided, the `reason` field is appended to the Linear issue description in a separate "Reason" section
 - If AI is enabled (`ENABLE_AI=true`), the system will:
   - Generate structured issue suggestions (title, description, labels, priority)
   - Generate a user-facing confirmation response
@@ -519,7 +521,8 @@ curl -X POST https://api.example.com/api/v1/customer-requests \
     "metadata": {
       "app_version": "2.1.0",
       "env": "production"
-    }
+    },
+    "reason": "This is blocking user registration flow"
   }'
 ```
 

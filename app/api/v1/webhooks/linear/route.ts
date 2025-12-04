@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createHmac } from "crypto"
 import { getD1Client } from "@/lib/db/get-client"
 import { CUSTOMER_REQUESTS_TABLE } from "@/lib/db/schema"
-import { mapLinearStateToStatus, addLabelToLinearIssue } from "@/lib/linear"
+import { mapLinearStateToStatus, addLabelToLinearIssue, fetchLinearIssueComments } from "@/lib/linear"
 import { formatErrorResponse, WebhookAuthError } from "@/lib/errors"
 import { verifyBearerToken } from "@/lib/auth/bearer"
 import { generateResolutionResponse } from "@/lib/openai/responses"
@@ -92,8 +92,12 @@ export async function POST(request: NextRequest) {
     const event = JSON.parse(body) as LinearWebhookEvent
 
     // Handle different event types
-    if (event.type === "Issue" && (event.action === "create" || event.action === "update")) {
-      await handleIssueEvent(event)
+    if (event.type === "Issue") {
+      if (event.action === "create" || event.action === "update") {
+        await handleIssueEvent(event)
+      } else if (event.action === "remove" || event.action === "delete") {
+        await handleIssueDeletion(event)
+      }
     } else if (event.type === "Comment" && event.action === "create") {
       await handleCommentEvent(event)
     }
@@ -161,24 +165,29 @@ async function handleIssueEvent(event: LinearWebhookEvent) {
 
     let responseText: string | null = customerRequest.response
 
-    // Generate resolution response if status is now "resolved"
+    // Generate resolution response if status is now "resolved" (Done in Linear)
     if (newStatus === "resolved" && customerRequest.status !== "resolved") {
       try {
-        const latestComment = metadata.latest_comment as
-          | {
-              body?: string
-            }
-          | undefined
+        // Fetch the latest comment from the Linear issue
+        let latestCommentText: string | null = null
+        try {
+          latestCommentText = await fetchLinearIssueComments(issueId)
+        } catch (error) {
+          // Log but don't fail - comment fetching is optional
+          console.error("Failed to fetch comments from Linear issue:", error)
+        }
 
-        const resolutionResponse = await generateResolutionResponse({
-          user_name: customerRequest.user_name,
-          original_content: customerRequest.content,
-          latest_comment_text: latestComment?.body,
-          linear_issue_identifier: event.data.identifier || issueId,
-        })
-
-        if (resolutionResponse) {
-          responseText = resolutionResponse
+        if (latestCommentText) {
+          const resolutionResponse = await generateResolutionResponse({
+            user_name: customerRequest.user_name,
+            original_content: customerRequest.content,
+            latest_comment_text: latestCommentText || undefined,
+            linear_issue_identifier: event.data.identifier || issueId,
+          })
+  
+          if (resolutionResponse) {
+            responseText = resolutionResponse
+          }
         }
       } catch (error) {
         // Log but don't fail - response generation is optional
@@ -199,6 +208,38 @@ async function handleIssueEvent(event: LinearWebhookEvent) {
       ]
     )
   }
+}
+
+async function handleIssueDeletion(event: LinearWebhookEvent) {
+  const issueId = event.data.id
+
+  if (!issueId) {
+    return
+  }
+
+  const db = getD1Client()
+
+  // Find customer request by linear_issue_id that hasn't been deleted yet
+  const result = await db.query<CustomerRequest>(
+    `SELECT * FROM ${CUSTOMER_REQUESTS_TABLE} WHERE linear_issue_id = ? AND deleted_at IS NULL`,
+    [issueId]
+  )
+
+  if (result.results.length === 0) {
+    // Issue not found in our database or already deleted - this is okay
+    return
+  }
+
+  const customerRequest = parseCustomerRequest(result.results[0]?.results?.[0])
+  const deletedAt = new Date().toISOString()
+
+  // Soft delete by setting deleted_at timestamp
+  await db.execute(
+    `UPDATE ${CUSTOMER_REQUESTS_TABLE} 
+     SET deleted_at = ?, updated_at = ? 
+     WHERE id = ?`,
+    [deletedAt, deletedAt, customerRequest.id]
+  )
 }
 
 async function handleCommentEvent(event: LinearWebhookEvent) {
